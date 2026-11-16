@@ -1,0 +1,40 @@
+resource "aws_launch_template" "andrew_ha_lt" {
+  name_prefix   = "andrew-ha-lt-"
+  image_id      = var.ami
+  instance_type = var.instance_type
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.andrew_app_ha_sg.id]
+  }
+
+
+  key_name = var.key_name
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_s3_instance_profile.id
+  }
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "andrew-app"
+    }
+  }
+
+}
+
+resource "aws_autoscaling_group" "andrew_ha_asg" {
+  name                = "andrew-ha-asg"
+  max_size            = 6
+  min_size            = 3
+  desired_capacity    = 3
+  vpc_zone_identifier = var.subnet_ids
+  launch_template {
+    id      = aws_launch_template.andrew_ha_lt.id
+    version = "$Latest"
+  }
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+  target_group_arns         = [aws_lb_target_group.andrew_ha_tg.arn]
+}
+
+
